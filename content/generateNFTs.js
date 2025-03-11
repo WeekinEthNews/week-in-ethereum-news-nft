@@ -139,8 +139,10 @@ async function generateNFTs() {
       return dateA.localeCompare(dateB);
     });
 
-    for (let tokenID = 0; tokenID < markdownFiles.length; tokenID++) {
-      const filePath = path.join(archiveDir, markdownFiles[tokenID]);
+    // Start tokenID at 1 instead of 0
+    for (let tokenID = 1; tokenID <= markdownFiles.length; tokenID++) {
+      const fileIndex = tokenID - 1; // Adjust index to start at 0 for array access
+      const filePath = path.join(archiveDir, markdownFiles[fileIndex]);
       await processFile(filePath, tokenID);
     }
     console.log(`Completed processing ${markdownFiles.length} NFTs.`);

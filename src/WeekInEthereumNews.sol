@@ -28,6 +28,11 @@ contract WeekInEthereumNews is
         return "ipfs://[CID]/";
     }
 
+    // Start tokens at 1
+    function _firstConsecutiveId() internal view virtual override returns (uint96) {
+        return 1;
+    }
+
     // The following functions are overrides required by Solidity.
 
     function tokenURI(

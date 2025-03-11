@@ -27,12 +27,12 @@ contract WeekInEthereumNewsTest is Test {
     }
 
     function testFuzz_Holder(uint256 tokenId) public view {
-        vm.assume(tokenId < nftSupply);
+        vm.assume(tokenId > 0 && tokenId <= nftSupply);
         assertEq(nft.ownerOf(tokenId), owner);
     }
 
     function testFuzz_TokenURI(uint256 tokenId) public view {
-        vm.assume(tokenId < nftSupply);
+        vm.assume(tokenId > 0 && tokenId <= nftSupply);
         assertEq(nft.tokenURI(tokenId), string.concat("ipfs://[CID]/", Strings.toString(tokenId), ".json"));
     }
 }
