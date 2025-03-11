@@ -106,9 +106,7 @@ async function processFile(filePath, tokenID) {
       description: `NFT for the Week in Ethereum News issue published on ${issueDate}.`,
       image: `ipfs://[CID]/${svgFileName}`, // Placeholder for IPFS CID
       attributes: [
-        { trait_type: 'Date', value: issueDate },
-        { trait_type: 'Headings', value: headings.length },
-        { trait_type: 'Topics', value: headings.join(', ') }
+        { trait_type: 'Date', value: issueDate }
       ]
     };
     const jsonPath = path.join(metadataDir, `${tokenID}.json`);
