@@ -84,6 +84,9 @@ async function processFile(filePath, tokenID) {
       return;
     }
 
+    // Extract year from issueDate
+    const year = issueDate.split('-')[0];
+
     // Read markdown content
     const markdownContent = await fs.readFile(filePath, 'utf8');
     const html = md.render(markdownContent);
@@ -106,7 +109,8 @@ async function processFile(filePath, tokenID) {
       description: `NFT for the Week in Ethereum News issue published on ${issueDate}.`,
       image: `ipfs://[CID]/${svgFileName}`, // Placeholder for IPFS CID
       attributes: [
-        { trait_type: 'Date', value: issueDate }
+        { trait_type: 'Date', value: issueDate },
+        { trait_type: 'Year', value: year }
       ]
     };
     const jsonPath = path.join(metadataDir, `${tokenID}.json`);
