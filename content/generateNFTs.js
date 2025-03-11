@@ -9,6 +9,7 @@ const md = new MarkdownIt();
 // Directories
 const archiveDir = './archive';
 const metadataDir = './metadata';
+const imagesDir = './images';
 
 // Month name to number mapping
 const monthMap = {
@@ -17,7 +18,7 @@ const monthMap = {
   'september': '09', 'october': '10', 'november': '11', 'december': '12'
 };
 
-// Ensure metadata directory exists
+// Ensure directory exists
 async function ensureDir(dir) {
   try {
     await fs.mkdir(dir, { recursive: true });
@@ -89,14 +90,14 @@ async function processFile(filePath, tokenID) {
     const $ = cheerio.load(html);
     const headings = $('h1, h2').map((i, el) => $(el).text().trim()).get();
 
-    // Create token directory
-    const tokenDir = path.join(metadataDir, tokenID.toString());
-    await ensureDir(tokenDir);
+    // Ensure directories exist
+    await ensureDir(metadataDir);
+    await ensureDir(imagesDir);
 
     // Generate SVG
     const svgContent = generateSVG(issueDate, headings);
     const svgFileName = filename.replace('.md', '.svg');
-    const svgPath = path.join(tokenDir, svgFileName);
+    const svgPath = path.join(imagesDir, svgFileName);
     await fs.writeFile(svgPath, svgContent, 'utf8');
 
     // Generate JSON metadata
@@ -110,7 +111,7 @@ async function processFile(filePath, tokenID) {
         { trait_type: 'Topics', value: headings.join(', ') }
       ]
     };
-    const jsonPath = path.join(tokenDir, `${tokenID}.json`);
+    const jsonPath = path.join(metadataDir, `${tokenID}.json`);
     await fs.writeFile(jsonPath, JSON.stringify(metadata, null, 2), 'utf8');
 
     console.log(`Generated NFT #${tokenID} for ${issueDate}`);
@@ -123,6 +124,7 @@ async function processFile(filePath, tokenID) {
 async function generateNFTs() {
   try {
     await ensureDir(metadataDir);
+    await ensureDir(imagesDir);
     const files = await fs.readdir(archiveDir);
     const markdownFiles = files.filter(file => file.match(/week-in-ethereum-news-[a-z]+-\d{1,2}-\d{4}\.md$/i));
 
