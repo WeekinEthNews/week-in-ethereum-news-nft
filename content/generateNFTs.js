@@ -11,12 +11,15 @@ const archiveDir = './archive';
 const metadataDir = './metadata';
 const imagesDir = './images';
 
-// Month name to number mapping
+// Month name to number and reverse mapping
 const monthMap = {
   'january': '01', 'february': '02', 'march': '03', 'april': '04',
   'may': '05', 'june': '06', 'july': '07', 'august': '08',
   'september': '09', 'october': '10', 'november': '11', 'december': '12'
 };
+const monthNameMap = Object.fromEntries(
+  Object.entries(monthMap).map(([name, num]) => [num, name.charAt(0).toUpperCase() + name.slice(1)])
+);
 
 // Ensure directory exists
 async function ensureDir(dir) {
@@ -34,9 +37,30 @@ function parseDateFromFilename(filename) {
   const [_, monthWord, day, year] = match;
   const month = monthMap[monthWord.toLowerCase()];
   if (!month) return null;
-  // Pad single-digit days with a leading zero
+  // Pad single-digit days with a leading zero for internal date format
   const paddedDay = day.length === 1 ? `0${day}` : day;
   return `${year}-${month}-${paddedDay}`; // YYYY-MM-DD
+}
+
+// Format date for display (Month Day Year)
+function formatDisplayDate(issueDate) {
+  const [year, monthNum, day] = issueDate.split('-');
+  const monthName = monthNameMap[monthNum];
+  const displayDay = parseInt(day, 10); // Remove leading zero
+  return `${monthName} ${displayDay} ${year}`;
+}
+
+// Format date for description (Month Day, Year)
+function formatDescriptionDate(issueDate) {
+  const [year, monthNum, day] = issueDate.split('-');
+  const monthName = monthNameMap[monthNum];
+  const displayDay = parseInt(day, 10); // Remove leading zero
+  return `${monthName} ${displayDay}, ${year}`;
+}
+
+// Convert YYYY-MM-DD to Unix timestamp (seconds)
+function toUnixTimestamp(issueDate) {
+  return Math.floor(new Date(issueDate).getTime() / 1000);
 }
 
 // Generate SVG content as a string (A3 size: 297mm x 420mm)
@@ -49,7 +73,7 @@ function generateSVG(issueDate, headings) {
   svg += '<rect width="100%" height="100%" fill="#f0f0f0"/>';
   
   // Title
-  const title = `Week in Ethereum News - ${issueDate}`;
+  const title = `Week in Ethereum News - ${formatDisplayDate(issueDate)}`;
   svg += `<text x="50%" y="50mm" font-size="24pt" text-anchor="middle" font-family="Arial">${title}</text>`;
   
   // Headings
@@ -86,6 +110,7 @@ async function processFile(filePath, tokenID) {
 
     // Extract year from issueDate
     const year = issueDate.split('-')[0];
+    const issueName = filename.replace('.md', '');
 
     // Read markdown content
     const markdownContent = await fs.readFile(filePath, 'utf8');
@@ -105,11 +130,16 @@ async function processFile(filePath, tokenID) {
 
     // Generate JSON metadata
     const metadata = {
-      name: `Week in Ethereum News - ${issueDate}`,
-      description: `NFT for the Week in Ethereum News issue published on ${issueDate}.`,
+      name: `Week in Ethereum News - ${formatDisplayDate(issueDate)}`,
+      description: `Week in Ethereum News, weekly newsletter published between August 2016 and December 2024 by Evan Van Ness.  This issue was published on ${formatDescriptionDate(issueDate)}.`,
       image: `ipfs://[CID]/${svgFileName}`, // Placeholder for IPFS CID
+      external_url: `https://weekinethereumnews.com/${issueName}`,
       attributes: [
-        { trait_type: 'Date', value: issueDate },
+        { 
+          trait_type: 'Published', 
+          value: toUnixTimestamp(issueDate),
+          display_type: 'date' 
+        },
         { trait_type: 'Year', value: year }
       ]
     };
