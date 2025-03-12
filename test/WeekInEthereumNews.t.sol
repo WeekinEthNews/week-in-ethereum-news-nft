@@ -9,18 +9,20 @@ import {IERC721Errors} from "@openzeppelin/contracts/interfaces/draft-IERC6093.s
 contract WeekInEthereumNewsTest is Test {
     WeekInEthereumNews public nft;
     address public owner;
-    uint256 public nftSupply;
+    uint256 public tokenSupply;
+    uint256 public firstTokenId;
 
     function setUp() public {
         owner = address(1);
         nft = new WeekInEthereumNews(owner);
-        nftSupply = 433;
+        firstTokenId = 1;
+        tokenSupply = 433;
     }
 
     function test_Metadata() public view {
         assertEq(nft.name(), "Week in Ethereum News");
         assertEq(nft.symbol(), "WiEN");
-        assertEq(nft.totalSupply(), nftSupply);
+        assertEq(nft.totalSupply(), tokenSupply);
     }
 
     function test_Owner() public view {
@@ -28,17 +30,17 @@ contract WeekInEthereumNewsTest is Test {
     }
 
     function testFuzz_OwnerOf(uint256 tokenId) public view {
-        vm.assume(tokenId > 0 && tokenId <= nftSupply);
+        vm.assume(tokenId >= firstTokenId && tokenId <= tokenSupply);
         assertEq(nft.ownerOf(tokenId), owner);
     }
 
     function testFuzz_TokenURI(uint256 tokenId) public view {
-        vm.assume(tokenId > 0 && tokenId <= nftSupply);
+        vm.assume(tokenId >= firstTokenId && tokenId <= tokenSupply);
         assertEq(nft.tokenURI(tokenId), string.concat("ipfs://[CID]/", Strings.toString(tokenId), ".json"));
     }
 
     function testFuzz_OwnerOf_NonexistentToken(uint256 nonexistentTokenId) public {
-        vm.assume(nonexistentTokenId < 1 || nonexistentTokenId > nftSupply);
+        vm.assume(nonexistentTokenId < firstTokenId || nonexistentTokenId > tokenSupply);
         vm.expectRevert(
             abi.encodeWithSelector(
                 IERC721Errors.ERC721NonexistentToken.selector,
@@ -49,7 +51,7 @@ contract WeekInEthereumNewsTest is Test {
     }
 
     function testFuzz_TokenURI_NonexistentToken(uint256 nonexistentTokenId) public {
-        vm.assume(nonexistentTokenId < 1 || nonexistentTokenId > nftSupply);
+        vm.assume(nonexistentTokenId < firstTokenId || nonexistentTokenId > tokenSupply);
         vm.expectRevert(
             abi.encodeWithSelector(
                 IERC721Errors.ERC721NonexistentToken.selector,
