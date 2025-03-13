@@ -58,15 +58,23 @@ function escapeXML(str) {
     .replace(/'/g, '&apos;');
 }
 
-// Generate SVG matching the prototype
+// Generate SVG with updated design
 function generateSVG(issueDate, markdownContent) {
-  const svgWidth = '210mm';  // A4 width
-  const svgHeight = '297mm'; // A4 height
+  const svgWidth = '297mm';  // A3 width
+  const svgHeight = '420mm'; // A3 height
   
   let svg = `<svg width="${svgWidth}" height="${svgHeight}" xmlns="http://www.w3.org/2000/svg">`;
   
-  // White background
-  svg += '<rect width="100%" height="100%" fill="#ffffff"/>';
+  // Blue/purple gradient background
+  svg += `
+    <defs>
+      <linearGradient id="bgGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+        <stop offset="0%" style="stop-color:#1c2526;stop-opacity:1" />
+        <stop offset="100%" style="stop-color:#4b0082;stop-opacity:1" />
+      </linearGradient>
+    </defs>
+    <rect width="100%" height="100%" fill="url(#bgGradient)"/>
+  `;
   
   // Dark blue header bar (20mm height)
   svg += '<rect x="0" y="0" width="100%" height="20mm" fill="#1c2526"/>';
@@ -75,21 +83,25 @@ function generateSVG(issueDate, markdownContent) {
   const title = `Week in Ethereum News - ${formatDisplayDate(issueDate)}`;
   svg += `<text x="50%" y="15mm" font-size="14pt" text-anchor="middle" font-family="Arial" fill="#ffffff" font-weight="bold">${escapeXML(title)}</text>`;
   
-  // Process markdown content
+  // Published date centered in the middle
+  const centerY = 210; // Half of 420mm (A3 height)
+  svg += `<text x="50%" y="${centerY}mm" font-size="12pt" text-anchor="middle" font-family="Arial" fill="#d3d3d3">${escapeXML(formatDisplayDate(issueDate))}</text>`;
+  
+  // Process markdown content (light gray text)
   const html = md.render(markdownContent);
   const $ = cheerio.load(html);
   
   let yPos = 25; // Starting y-position below header in mm
-  const lineHeight = 5; // mm (adjusted for tighter spacing)
-  const marginLeft = 10; // mm (left margin)
-  const maxWidth = 190; // mm (210mm - 10mm left - 10mm right)
-  const charsPerLine = Math.floor(maxWidth / 2); // Rough estimate, adjusted for smaller font
+  const lineHeight = 5; // mm
+  const marginLeft = 10; // mm
+  const maxWidth = 277; // mm (297mm - 10mm left - 10mm right)
+  const charsPerLine = Math.floor(maxWidth / 2); // Adjusted for wider width
 
   // Track rendered text to avoid duplicates
   const renderedText = new Set();
 
   const processBlockElement = (el) => {
-    let fontSize = '8pt'; // Default from prototype
+    let fontSize = '8pt';
     let fontWeight = 'normal';
     let prefix = '';
 
@@ -165,20 +177,30 @@ function generateSVG(issueDate, markdownContent) {
       lines.push({ text: currentLine.trim(), bold: parts[parts.length - 1].bold, underline: parts[parts.length - 1].underline });
     }
 
-    // Render each line
+    // Render each line (light gray text)
     lines.forEach((line, index) => {
       if (!line.text || renderedText.has(line.text)) return;
       renderedText.add(line.text);
       svg += `<text x="${marginLeft}mm" y="${yPos + (index * lineHeight)}mm" `;
-      svg += `font-size="${fontSize}" font-family="Arial" fill="#000000" `;
+      svg += `font-size="${fontSize}" font-family="Arial" fill="#d3d3d3" `;
       svg += `font-weight="${line.bold || fontWeight === 'bold' ? 'bold' : 'normal'}" `;
       svg += `text-decoration="${line.underline ? 'underline' : 'none'}">${escapeXML(line.text)}</text>`;
     });
 
-    yPos += lines.length * lineHeight + 2; // 2mm extra spacing between blocks
+    yPos += lines.length * lineHeight + 2;
   };
 
   $('h1, h2, h3, p, li').each((i, el) => processBlockElement(el));
+
+  // Ethereum logo and "Week in Ethereum News" at the bottom
+  const bottomY = 400; // Near bottom of A3 (420mm - 20mm)
+  // Simple Ethereum logo (diamond shape)
+  svg += `
+    <g transform="translate(135, ${bottomY}) scale(0.5)">
+      <polygon points="0,0 20,20 -20,20 0,40" fill="#ffffff" stroke="#ffffff" stroke-width="2"/>
+    </g>
+  `;
+  svg += `<text x="50%" y="${bottomY + 15}mm" font-size="12pt" text-anchor="middle" font-family="Arial" fill="#ffffff">Week in Ethereum News</text>`;
 
   svg += '</svg>';
   return svg;
