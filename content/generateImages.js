@@ -45,7 +45,7 @@ function formatDisplayDate(issueDate) {
   const [year, monthNum, day] = issueDate.split('-');
   const monthName = monthNameMap[monthNum];
   const displayDay = parseInt(day, 10);
-  return `${monthName} ${displayDay} ${year}`;
+  return `${monthName} ${displayDay}, ${year}`; // Matches prototype format
 }
 
 // Escape special XML characters
@@ -58,68 +58,57 @@ function escapeXML(str) {
     .replace(/'/g, '&apos;');
 }
 
-// Generate SVG with updated design
+// Generate SVG with updated blue box
 function generateSVG(issueDate, markdownContent) {
-  const svgWidth = '297mm';  // A3 width
-  const svgHeight = '420mm'; // A3 height
+  const svgWidth = 500;  // Prototype width in pixels
+  const svgHeight = 706; // A3 height in pixels (500 * 420/297 ≈ 706)
+  const viewBoxWidth = 500;
+  const viewBoxHeight = 500; // Keep prototype viewBox for scaling
   
-  let svg = `<svg width="${svgWidth}" height="${svgHeight}" xmlns="http://www.w3.org/2000/svg">`;
+  let svg = `<svg id="week-in-ethereum-news" width="${svgWidth}" height="${svgHeight}" viewBox="0 0 ${viewBoxWidth} ${viewBoxHeight}" fill="none" xmlns="http://www.w3.org/2000/svg">`;
   
-  // Blue/purple gradient background
-  svg += `
-    <defs>
-      <linearGradient id="bgGradient" x1="0%" y1="0%" x2="0%" y2="100%">
-        <stop offset="0%" style="stop-color:#1c2526;stop-opacity:1" />
-        <stop offset="100%" style="stop-color:#4b0082;stop-opacity:1" />
-      </linearGradient>
-    </defs>
-    <rect width="100%" height="100%" fill="url(#bgGradient)"/>
-  `;
+  // Background with increased height and smaller top/bottom margins
+  const marginX = 28; // Left and right margins from prototype
+  const marginY = 10; // Smaller top and bottom margins
+  const rectWidth = viewBoxWidth - (2 * marginX); // 444
+  const rectHeight = viewBoxHeight - (2 * marginY); // 480
+  svg += `<rect x="${marginX}" y="${marginY}" width="${rectWidth}" height="${rectHeight}" rx="20" fill="#454A75"/>`;
   
-  // Dark blue header bar (20mm height)
-  svg += '<rect x="0" y="0" width="100%" height="20mm" fill="#1c2526"/>';
-  
-  // Title in header
-  const title = `Week in Ethereum News - ${formatDisplayDate(issueDate)}`;
-  svg += `<text x="50%" y="15mm" font-size="14pt" text-anchor="middle" font-family="Arial" fill="#ffffff" font-weight="bold">${escapeXML(title)}</text>`;
-  
-  // Published date centered in the middle
-  const centerY = 210; // Half of 420mm (A3 height)
-  svg += `<text x="50%" y="${centerY}mm" font-size="12pt" text-anchor="middle" font-family="Arial" fill="#d3d3d3">${escapeXML(formatDisplayDate(issueDate))}</text>`;
-  
-  // Process markdown content (light gray text)
+  // Process markdown content (wienText styling)
   const html = md.render(markdownContent);
   const $ = cheerio.load(html);
   
-  let yPos = 25; // Starting y-position below header in mm
-  const lineHeight = 5; // mm
-  const marginLeft = 10; // mm
-  const maxWidth = 277; // mm (297mm - 10mm left - 10mm right)
-  const charsPerLine = Math.floor(maxWidth / 2); // Adjusted for wider width
+  let yPos = 50; // Starting y-position from prototype, adjusted within new rect
+  const lineHeight = 10; // Matches prototype spacing
+  const marginLeft = 42; // Matches h2/h3 x position
+  const maxWidth = 430; // 500 - 42 - 28 (right margin approximation)
+  const charsPerLine = Math.floor(maxWidth / 5); // Rough estimate for 8px font
 
   // Track rendered text to avoid duplicates
   const renderedText = new Set();
 
   const processBlockElement = (el) => {
-    let fontSize = '8pt';
+    let fontSize = '8px'; // .tiny class from prototype
     let fontWeight = 'normal';
     let prefix = '';
+    let xOffset = marginLeft;
 
     switch (el.tagName) {
-      case 'h1':
-        fontSize = '12pt';
-        fontWeight = 'bold';
-        break;
+      case 'h1': // Not explicitly styled in prototype, using h2
       case 'h2':
-        fontSize = '10pt';
-        fontWeight = 'bold';
+        fontSize = '12px'; // .h2 class
+        fontWeight = 'normal'; // Prototype doesn't use bold
         break;
       case 'h3':
-        fontSize = '9pt';
-        fontWeight = 'bold';
+        fontSize = '10px'; // .h3 class
+        fontWeight = 'normal';
         break;
       case 'li':
-        prefix = '• ';
+        prefix = '* '; // Prototype uses asterisk
+        xOffset = 50; // Matches prototype indent
+        break;
+      case 'p':
+        xOffset = 50; // Matches prototype indent for text
         break;
     }
 
@@ -177,30 +166,49 @@ function generateSVG(issueDate, markdownContent) {
       lines.push({ text: currentLine.trim(), bold: parts[parts.length - 1].bold, underline: parts[parts.length - 1].underline });
     }
 
-    // Render each line (light gray text)
+    // Render each line
     lines.forEach((line, index) => {
       if (!line.text || renderedText.has(line.text)) return;
       renderedText.add(line.text);
-      svg += `<text x="${marginLeft}mm" y="${yPos + (index * lineHeight)}mm" `;
-      svg += `font-size="${fontSize}" font-family="Arial" fill="#d3d3d3" `;
+      svg += `<text x="${xOffset}" y="${yPos + (index * lineHeight)}" `;
+      svg += `font-size="${fontSize}" font-family="Courier New" fill="#ffffff" opacity="0.15" `;
       svg += `font-weight="${line.bold || fontWeight === 'bold' ? 'bold' : 'normal'}" `;
       svg += `text-decoration="${line.underline ? 'underline' : 'none'}">${escapeXML(line.text)}</text>`;
     });
 
-    yPos += lines.length * lineHeight + 2;
+    yPos += lines.length * lineHeight + 2; // Small spacing between blocks
   };
 
   $('h1, h2, h3, p, li').each((i, el) => processBlockElement(el));
 
-  // Ethereum logo and "Week in Ethereum News" at the bottom
-  const bottomY = 400; // Near bottom of A3 (420mm - 20mm)
-  // Simple Ethereum logo (diamond shape)
+  // Published date centered in the middle
+  const centerY = viewBoxHeight / 2;
+  const dateParts = formatDisplayDate(issueDate).split(', ');
+  svg += `<text fill="#ffffff" font-family="Calibri" font-size="70" font-weight="300">`;
+  svg += `<tspan x="47.009" y="${centerY - 35}">${dateParts[0]},</tspan>`;
+  svg += `<tspan x="177.989" y="${centerY + 35}">${dateParts[1]}</tspan>`;
+  svg += `</text>`;
+
+  // Ethereum logo at bottom
   svg += `
-    <g transform="translate(135, ${bottomY}) scale(0.5)">
-      <polygon points="0,0 20,20 -20,20 0,40" fill="#ffffff" stroke="#ffffff" stroke-width="2"/>
-    </g>
+    <path d="m64.496 411-.317 1.076v31.228l.317.316 14.495-8.568L64.496 411Z" stroke="#fff" stroke-width=".866" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M64.496 411 50 435.052l14.496 8.568V411Zm0 35.365-.179.218v11.124l.179.521L79 437.801l-14.504 8.564Z" stroke="#fff" stroke-width=".866" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M64.496 458.228v-11.863L50 437.801l14.496 20.427Zm0-14.608 14.495-8.568-14.495-6.589v15.157ZM50 435.052l14.496 8.568v-15.157L50 435.052Z" stroke="#fff" stroke-width=".866" stroke-linecap="round" stroke-linejoin="round"/>
   `;
-  svg += `<text x="50%" y="${bottomY + 15}mm" font-size="12pt" text-anchor="middle" font-family="Arial" fill="#ffffff">Week in Ethereum News</text>`;
+
+  // "Week in Ethereum News" text at bottom
+  svg += `<text fill="#ffffff" font-family="Calibri" font-size="36" x="88.195" y="444">Week in Ethereum News</text>`;
+
+  // Add styles from prototype
+  svg += `
+    <style>
+      .wienText {font-family: "Courier New"; fill: white; opacity: .15;}
+      .h2 {font-size: 12px;}
+      .h3 {font-size: 10px;}
+      .tiny {font-size: 8px;}
+      .link {text-decoration: underline;}
+    </style>
+  `;
 
   svg += '</svg>';
   return svg;
