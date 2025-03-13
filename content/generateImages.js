@@ -58,30 +58,24 @@ function escapeXML(str) {
     .replace(/'/g, '&apos;');
 }
 
-// Generate SVG with updated blue box
+// Generate SVG with updated rectangle and layout
 function generateSVG(issueDate, markdownContent) {
   const svgWidth = 500;  // Prototype width in pixels
   const svgHeight = 706; // A3 height in pixels (500 * 420/297 ≈ 706)
-  const viewBoxWidth = 500;
-  const viewBoxHeight = 500; // Keep prototype viewBox for scaling
   
-  let svg = `<svg id="week-in-ethereum-news" width="${svgWidth}" height="${svgHeight}" viewBox="0 0 ${viewBoxWidth} ${viewBoxHeight}" fill="none" xmlns="http://www.w3.org/2000/svg">`;
+  let svg = `<svg id="week-in-ethereum-news" width="${svgWidth}" height="${svgHeight}" fill="none" xmlns="http://www.w3.org/2000/svg">`;
   
-  // Background with increased height and smaller top/bottom margins
-  const marginX = 28; // Left and right margins from prototype
-  const marginY = 10; // Smaller top and bottom margins
-  const rectWidth = viewBoxWidth - (2 * marginX); // 444
-  const rectHeight = viewBoxHeight - (2 * marginY); // 480
-  svg += `<rect x="${marginX}" y="${marginY}" width="${rectWidth}" height="${rectHeight}" rx="20" fill="#454A75"/>`;
+  // Larger blue rectangle
+  svg += `<rect x="20" y="20" width="460" height="666" rx="20" fill="#454A75"/>`;
   
   // Process markdown content (wienText styling)
   const html = md.render(markdownContent);
   const $ = cheerio.load(html);
   
-  let yPos = 50; // Starting y-position from prototype, adjusted within new rect
+  let yPos = 50; // Starting y-position from prototype, within new rect
   const lineHeight = 10; // Matches prototype spacing
   const marginLeft = 42; // Matches h2/h3 x position
-  const maxWidth = 430; // 500 - 42 - 28 (right margin approximation)
+  const maxWidth = 436; // 500 - 42 - 22 (adjusted right margin for new rect width)
   const charsPerLine = Math.floor(maxWidth / 5); // Rough estimate for 8px font
 
   // Track rendered text to avoid duplicates
@@ -182,22 +176,24 @@ function generateSVG(issueDate, markdownContent) {
   $('h1, h2, h3, p, li').each((i, el) => processBlockElement(el));
 
   // Published date centered in the middle
-  const centerY = viewBoxHeight / 2;
+  const centerY = svgHeight / 2; // Center of full SVG height (706 / 2 = 353)
   const dateParts = formatDisplayDate(issueDate).split(', ');
   svg += `<text fill="#ffffff" font-family="Calibri" font-size="70" font-weight="300">`;
   svg += `<tspan x="47.009" y="${centerY - 35}">${dateParts[0]},</tspan>`;
   svg += `<tspan x="177.989" y="${centerY + 35}">${dateParts[1]}</tspan>`;
   svg += `</text>`;
 
-  // Ethereum logo at bottom
+  // Ethereum logo at bottom (adjusted for new height)
   svg += `
-    <path d="m64.496 411-.317 1.076v31.228l.317.316 14.495-8.568L64.496 411Z" stroke="#fff" stroke-width=".866" stroke-linecap="round" stroke-linejoin="round"/>
-    <path d="M64.496 411 50 435.052l14.496 8.568V411Zm0 35.365-.179.218v11.124l.179.521L79 437.801l-14.504 8.564Z" stroke="#fff" stroke-width=".866" stroke-linecap="round" stroke-linejoin="round"/>
-    <path d="M64.496 458.228v-11.863L50 437.801l14.496 20.427Zm0-14.608 14.495-8.568-14.495-6.589v15.157ZM50 435.052l14.496 8.568v-15.157L50 435.052Z" stroke="#fff" stroke-width=".866" stroke-linecap="round" stroke-linejoin="round"/>
+    <g transform="translate(0, ${svgHeight - 95})">
+      <path d="m64.496 411-.317 1.076v31.228l.317.316 14.495-8.568L64.496 411Z" stroke="#fff" stroke-width=".866" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M64.496 411 50 435.052l14.496 8.568V411Zm0 35.365-.179.218v11.124l.179.521L79 437.801l-14.504 8.564Z" stroke="#fff" stroke-width=".866" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M64.496 458.228v-11.863L50 437.801l14.496 20.427Zm0-14.608 14.495-8.568-14.495-6.589v15.157ZM50 435.052l14.496 8.568v-15.157L50 435.052Z" stroke="#fff" stroke-width=".866" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
   `;
 
-  // "Week in Ethereum News" text at bottom
-  svg += `<text fill="#ffffff" font-family="Calibri" font-size="36" x="88.195" y="444">Week in Ethereum News</text>`;
+  // "Week in Ethereum News" text at bottom (adjusted for new height)
+  svg += `<text fill="#ffffff" font-family="Calibri" font-size="36" x="88.195" y="${svgHeight - 20}">Week in Ethereum News</text>`;
 
   // Add styles from prototype
   svg += `
