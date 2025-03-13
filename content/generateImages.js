@@ -58,7 +58,7 @@ function escapeXML(str) {
     .replace(/'/g, '&apos;');
 }
 
-// Generate SVG with updated rectangle and layout
+// Generate SVG with adjusted logo and text positions
 function generateSVG(issueDate, markdownContent) {
   const svgWidth = 500;  // Prototype width in pixels
   const svgHeight = 706; // A3 height in pixels (500 * 420/297 ≈ 706)
@@ -183,17 +183,16 @@ function generateSVG(issueDate, markdownContent) {
   svg += `<tspan x="177.989" y="${centerY + 35}">${dateParts[1]}</tspan>`;
   svg += `</text>`;
 
-  // Ethereum logo at bottom (adjusted for new height)
+  // Ethereum logo and "Week in Ethereum News" inline at bottom
+  const bottomY = 660; // Set y-value for text to 660
   svg += `
-    <g transform="translate(0, ${svgHeight - 95})">
+    <g transform="translate(20, 300) scale(0.8)">
       <path d="m64.496 411-.317 1.076v31.228l.317.316 14.495-8.568L64.496 411Z" stroke="#fff" stroke-width=".866" stroke-linecap="round" stroke-linejoin="round"/>
       <path d="M64.496 411 50 435.052l14.496 8.568V411Zm0 35.365-.179.218v11.124l.179.521L79 437.801l-14.504 8.564Z" stroke="#fff" stroke-width=".866" stroke-linecap="round" stroke-linejoin="round"/>
       <path d="M64.496 458.228v-11.863L50 437.801l14.496 20.427Zm0-14.608 14.495-8.568-14.495-6.589v15.157ZM50 435.052l14.496 8.568v-15.157L50 435.052Z" stroke="#fff" stroke-width=".866" stroke-linecap="round" stroke-linejoin="round"/>
     </g>
   `;
-
-  // "Week in Ethereum News" text at bottom (adjusted for new height)
-  svg += `<text fill="#ffffff" font-family="Calibri" font-size="36" x="88.195" y="${svgHeight - 20}">Week in Ethereum News</text>`;
+  svg += `<text fill="#ffffff" font-family="Calibri" font-size="36" x="88.195" y="${bottomY}">Week in Ethereum News</text>`;
 
   // Add styles from prototype
   svg += `
