@@ -58,7 +58,7 @@ function escapeXML(str) {
     .replace(/'/g, '&apos;');
 }
 
-// Generate SVG with adjusted logo and text positions
+// Generate SVG with truncated issue text
 function generateSVG(issueDate, markdownContent) {
   const svgWidth = 500;  // Prototype width in pixels
   const svgHeight = 706; // A3 height in pixels (500 * 420/297 ≈ 706)
@@ -77,6 +77,7 @@ function generateSVG(issueDate, markdownContent) {
   const marginLeft = 42; // Matches h2/h3 x position
   const maxWidth = 436; // 500 - 42 - 22 (adjusted right margin for new rect width)
   const charsPerLine = Math.floor(maxWidth / 5); // Rough estimate for 8px font
+  const maxY = 20 + 666; // Bottom of the blue rectangle (686)
 
   // Track rendered text to avoid duplicates
   const renderedText = new Set();
@@ -140,7 +141,7 @@ function generateSVG(issueDate, markdownContent) {
       parts[0].text = prefix + parts[0].text;
     }
 
-    // Wrap text and render
+    // Wrap text and render, truncating if exceeding maxY
     let currentLine = '';
     let lines = [];
 
@@ -160,17 +161,21 @@ function generateSVG(issueDate, markdownContent) {
       lines.push({ text: currentLine.trim(), bold: parts[parts.length - 1].bold, underline: parts[parts.length - 1].underline });
     }
 
-    // Render each line
-    lines.forEach((line, index) => {
-      if (!line.text || renderedText.has(line.text)) return;
+    // Render each line up to maxY
+    const maxLines = Math.floor((maxY - yPos) / lineHeight);
+    for (let i = 0; i < Math.min(lines.length, maxLines); i++) {
+      const line = lines[i];
+      if (!line.text || renderedText.has(line.text)) continue;
       renderedText.add(line.text);
-      svg += `<text x="${xOffset}" y="${yPos + (index * lineHeight)}" `;
+      svg += `<text x="${xOffset}" y="${yPos + (i * lineHeight)}" `;
       svg += `font-size="${fontSize}" font-family="Courier New" fill="#ffffff" opacity="0.15" `;
       svg += `font-weight="${line.bold || fontWeight === 'bold' ? 'bold' : 'normal'}" `;
       svg += `text-decoration="${line.underline ? 'underline' : 'none'}">${escapeXML(line.text)}</text>`;
-    });
+    }
 
-    yPos += lines.length * lineHeight + 2; // Small spacing between blocks
+    // Update yPos based on rendered lines
+    yPos += Math.min(lines.length, maxLines) * lineHeight + 2;
+    if (yPos > maxY) yPos = maxY; // Cap yPos at maxY
   };
 
   $('h1, h2, h3, p, li').each((i, el) => processBlockElement(el));
@@ -186,7 +191,7 @@ function generateSVG(issueDate, markdownContent) {
   // Ethereum logo and "Week in Ethereum News" inline at bottom
   const bottomY = 660; // Set y-value for text to 660
   svg += `
-    <g transform="translate(20, 300) scale(0.8)">
+    <g transform="translate(20, 230) scale(0.8)">
       <path d="m64.496 411-.317 1.076v31.228l.317.316 14.495-8.568L64.496 411Z" stroke="#fff" stroke-width=".866" stroke-linecap="round" stroke-linejoin="round"/>
       <path d="M64.496 411 50 435.052l14.496 8.568V411Zm0 35.365-.179.218v11.124l.179.521L79 437.801l-14.504 8.564Z" stroke="#fff" stroke-width=".866" stroke-linecap="round" stroke-linejoin="round"/>
       <path d="M64.496 458.228v-11.863L50 437.801l14.496 20.427Zm0-14.608 14.495-8.568-14.495-6.589v15.157ZM50 435.052l14.496 8.568v-15.157L50 435.052Z" stroke="#fff" stroke-width=".866" stroke-linecap="round" stroke-linejoin="round"/>
