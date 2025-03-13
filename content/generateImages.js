@@ -58,49 +58,52 @@ function escapeXML(str) {
     .replace(/'/g, '&apos;');
 }
 
-// Generate SVG with full markdown content
+// Generate SVG matching the prototype
 function generateSVG(issueDate, markdownContent) {
-  const svgWidth = '297mm';
-  const svgHeight = '420mm'; // A3 size
+  const svgWidth = '210mm';  // A4 width
+  const svgHeight = '297mm'; // A4 height
   
   let svg = `<svg width="${svgWidth}" height="${svgHeight}" xmlns="http://www.w3.org/2000/svg">`;
   
-  // Background
-  svg += '<rect width="100%" height="100%" fill="#f0f0f0"/>';
+  // White background
+  svg += '<rect width="100%" height="100%" fill="#ffffff"/>';
   
-  // Title
+  // Dark blue header bar (20mm height)
+  svg += '<rect x="0" y="0" width="100%" height="20mm" fill="#1c2526"/>';
+  
+  // Title in header
   const title = `Week in Ethereum News - ${formatDisplayDate(issueDate)}`;
-  svg += `<text x="50%" y="30mm" font-size="18pt" text-anchor="middle" font-family="Arial" font-weight="bold">${escapeXML(title)}</text>`;
+  svg += `<text x="50%" y="15mm" font-size="14pt" text-anchor="middle" font-family="Arial" fill="#ffffff" font-weight="bold">${escapeXML(title)}</text>`;
   
   // Process markdown content
   const html = md.render(markdownContent);
   const $ = cheerio.load(html);
   
-  let yPos = 50; // Starting y-position in mm
-  const lineHeight = 6; // mm
-  const marginLeft = 20; // mm
-  const maxWidth = 257; // mm (A3 width minus margins)
-  const charsPerLine = Math.floor(maxWidth / 2.5); // Rough estimate
+  let yPos = 25; // Starting y-position below header in mm
+  const lineHeight = 5; // mm (adjusted for tighter spacing)
+  const marginLeft = 10; // mm (left margin)
+  const maxWidth = 190; // mm (210mm - 10mm left - 10mm right)
+  const charsPerLine = Math.floor(maxWidth / 2); // Rough estimate, adjusted for smaller font
 
   // Track rendered text to avoid duplicates
   const renderedText = new Set();
 
   const processBlockElement = (el) => {
-    let fontSize = '10pt';
+    let fontSize = '8pt'; // Default from prototype
     let fontWeight = 'normal';
     let prefix = '';
 
     switch (el.tagName) {
       case 'h1':
-        fontSize = '14pt';
-        fontWeight = 'bold';
-        break;
-      case 'h2':
         fontSize = '12pt';
         fontWeight = 'bold';
         break;
+      case 'h2':
+        fontSize = '10pt';
+        fontWeight = 'bold';
+        break;
       case 'h3':
-        fontSize = '11pt';
+        fontSize = '9pt';
         fontWeight = 'bold';
         break;
       case 'li':
@@ -167,12 +170,12 @@ function generateSVG(issueDate, markdownContent) {
       if (!line.text || renderedText.has(line.text)) return;
       renderedText.add(line.text);
       svg += `<text x="${marginLeft}mm" y="${yPos + (index * lineHeight)}mm" `;
-      svg += `font-size="${fontSize}" font-family="Arial" `;
+      svg += `font-size="${fontSize}" font-family="Arial" fill="#000000" `;
       svg += `font-weight="${line.bold || fontWeight === 'bold' ? 'bold' : 'normal'}" `;
       svg += `text-decoration="${line.underline ? 'underline' : 'none'}">${escapeXML(line.text)}</text>`;
     });
 
-    yPos += lines.length * lineHeight + 2;
+    yPos += lines.length * lineHeight + 2; // 2mm extra spacing between blocks
   };
 
   $('h1, h2, h3, p, li').each((i, el) => processBlockElement(el));
