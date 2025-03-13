@@ -58,7 +58,7 @@ function escapeXML(str) {
     .replace(/'/g, '&apos;');
 }
 
-// Generate SVG with adjusted logo position
+// Generate SVG with title and date removed from markdown content
 function generateSVG(issueDate, markdownContent) {
   const svgWidth = 500;  // Prototype width in pixels
   const svgHeight = 706; // A3 height in pixels (500 * 420/297 ≈ 706)
@@ -68,10 +68,34 @@ function generateSVG(issueDate, markdownContent) {
   // Larger blue rectangle
   svg += `<rect x="20" y="20" width="460" height="666" rx="20" fill="#454A75"/>`;
   
-  // Process markdown content (wienText styling)
-  const html = md.render(markdownContent);
+  // Remove frontmatter from markdown content
+  let cleanedContent = markdownContent;
+  if (cleanedContent.startsWith('---')) {
+    const parts = cleanedContent.split('---');
+    if (parts.length >= 3) {
+      cleanedContent = parts.slice(2).join('---').trim();
+    }
+  } else {
+    // Remove the first line if it contains frontmatter-like content
+    const lines = cleanedContent.split('\n');
+    if (lines[0].includes('title:') || lines[0].includes('date:')) {
+      cleanedContent = lines.slice(1).join('\n').trim();
+    }
+  }
+
+  // Process markdown content to HTML
+  const html = md.render(cleanedContent);
   const $ = cheerio.load(html);
-  
+
+  // Remove the first h1 if it matches the title and date pattern
+  const formattedDate = formatDisplayDate(issueDate).replace(', ', ' ');
+  const titlePattern = new RegExp(`Week in Ethereum News.*${formattedDate}`, 'i');
+  const firstH1 = $('h1').first();
+  if (firstH1.length && titlePattern.test(firstH1.text())) {
+    firstH1.remove();
+  }
+
+  // Update y-position and other rendering parameters
   let yPos = 50; // Starting y-position from prototype, within new rect
   const lineHeight = 10; // Matches prototype spacing
   const marginLeft = 42; // Matches h2/h3 x position
@@ -182,10 +206,11 @@ function generateSVG(issueDate, markdownContent) {
 
   // Published date centered in the middle
   const centerY = svgHeight / 2; // Center of full SVG height (706 / 2 = 353)
+  const centerX = svgWidth / 2; // Center horizontally (500 / 2 = 250)
   const dateParts = formatDisplayDate(issueDate).split(', ');
-  svg += `<text fill="#ffffff" font-family="Calibri" font-size="70" font-weight="300">`;
-  svg += `<tspan x="47.009" y="${centerY - 35}">${dateParts[0]},</tspan>`;
-  svg += `<tspan x="177.989" y="${centerY + 35}">${dateParts[1]}</tspan>`;
+  svg += `<text fill="#ffffff" font-family="Calibri" font-size="70" font-weight="300" text-anchor="middle">`;
+  svg += `<tspan x="${centerX}" y="${centerY - 35}">${dateParts[0]},</tspan>`;
+  svg += `<tspan x="${centerX}" y="${centerY + 35}">${dateParts[1]}</tspan>`;
   svg += `</text>`;
 
   // Ethereum logo and "Week in Ethereum News" inline at bottom
