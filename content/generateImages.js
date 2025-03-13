@@ -58,7 +58,7 @@ function escapeXML(str) {
     .replace(/'/g, '&apos;');
 }
 
-// Generate SVG with truncated issue text
+// Generate SVG with adjusted logo position
 function generateSVG(issueDate, markdownContent) {
   const svgWidth = 500;  // Prototype width in pixels
   const svgHeight = 706; // A3 height in pixels (500 * 420/297 ≈ 706)
@@ -191,7 +191,7 @@ function generateSVG(issueDate, markdownContent) {
   // Ethereum logo and "Week in Ethereum News" inline at bottom
   const bottomY = 660; // Set y-value for text to 660
   svg += `
-    <g transform="translate(20, 230) scale(0.8)">
+    <g transform="translate(20, 300) scale(0.8)">
       <path d="m64.496 411-.317 1.076v31.228l.317.316 14.495-8.568L64.496 411Z" stroke="#fff" stroke-width=".866" stroke-linecap="round" stroke-linejoin="round"/>
       <path d="M64.496 411 50 435.052l14.496 8.568V411Zm0 35.365-.179.218v11.124l.179.521L79 437.801l-14.504 8.564Z" stroke="#fff" stroke-width=".866" stroke-linecap="round" stroke-linejoin="round"/>
       <path d="M64.496 458.228v-11.863L50 437.801l14.496 20.427Zm0-14.608 14.495-8.568-14.495-6.589v15.157ZM50 435.052l14.496 8.568v-15.157L50 435.052Z" stroke="#fff" stroke-width=".866" stroke-linecap="round" stroke-linejoin="round"/>
