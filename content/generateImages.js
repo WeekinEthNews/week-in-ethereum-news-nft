@@ -80,7 +80,7 @@ function generateSVG(issueDate, markdownContent) {
   const processElement = (el, indentLevel = 0) => {
     let fontSize = 8;
     let xOffset = marginLeft + (indentLevel * 8);
-    let prefix = indentLevel > 0 ? '• ' : '';
+    let prefix = indentLevel > 0 ? '•' : '';
 
     switch (el.tagName) {
       case 'h2':
@@ -114,7 +114,7 @@ function generateSVG(issueDate, markdownContent) {
             if (!renderedText.has(normalizedHeading)) {
               renderedText.add(normalizedHeading);
               const parts = [{ text: headingText, bold: false, underline: false }];
-              renderText(parts, xOffset, fontSize);
+              renderText(parts, xOffset, fontSize, '');
             }
           }
           return; // Skip further processing of this <p>, let the <ul> handle the list items
@@ -169,13 +169,11 @@ function generateSVG(issueDate, markdownContent) {
 
     renderedText.add(normalized);
 
-    if (prefix) parts[0].text = prefix + parts[0].text;
-
-    renderText(parts, xOffset, fontSize);
+    renderText(parts, xOffset, fontSize, prefix);
   };
 
   // Helper function to render text
-  const renderText = (parts, xOffset, fontSize) => {
+  const renderText = (parts, xOffset, fontSize, prefix) => {
     const textLines = [];
     let currentLine = '';
     let currentStyles = { bold: false, underline: false };
@@ -213,6 +211,13 @@ function generateSVG(issueDate, markdownContent) {
     // Render lines
     textLines.forEach((lineObj) => {
       if (yPos + lineHeight > maxY) return;
+
+      if (prefix) {
+        // Render the bullet point separately without underlining
+        svg += `<text x="${xOffset}" y="${yPos}" font-size="${fontSize}" font-family="Courier New" fill="#ffffff" opacity="0.15">${escapeXML(prefix)}</text>`;
+        xOffset += 10; // Adjust xOffset to account for the bullet point width
+      }
+
       const styles = [];
       if (lineObj.bold) styles.push('font-weight="bold"');
       if (lineObj.underline) styles.push('text-decoration="underline"');
