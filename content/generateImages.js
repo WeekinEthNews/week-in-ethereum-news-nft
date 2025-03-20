@@ -53,7 +53,6 @@ function escapeXML(str) {
     .replace(/'/g, '&apos;');
 }
 
-// Generate SVG with title and date removed from markdown content
 function generateSVG(issueDate, markdownContent) {
   const svgWidth = 500;
   const contentHeight = 626;
@@ -70,7 +69,7 @@ function generateSVG(issueDate, markdownContent) {
   // Process markdown
   let cleanedContent = markdownContent.replace(/^---[\s\S]*?---\n*/m, '');
   const html = marked(cleanedContent);
-  const $ = require('cheerio').load(html); // Still using cheerio for HTML parsing
+  const $ = require('cheerio').load(html);
 
   const formattedDate = formatDisplayDate(issueDate);
   $('h1').first().filter((i, el) => $(el).text().includes('Week in Ethereum News')).remove();
@@ -81,7 +80,7 @@ function generateSVG(issueDate, markdownContent) {
   const processElement = (el, indentLevel = 0) => {
     let fontSize = 8;
     let xOffset = marginLeft + (indentLevel * 8);
-    let prefix = '';
+    let prefix = indentLevel > 0 ? '• ' : '';
 
     switch (el.tagName) {
       case 'h2':
@@ -91,11 +90,36 @@ function generateSVG(issueDate, markdownContent) {
         fontSize = 10;
         break;
       case 'li':
-        prefix = '• ';
         xOffset += 8; // Additional indent for list items
         break;
       case 'p':
         break;
+    }
+
+    // Handle <p> elements that are followed by a list
+    if (el.tagName === 'p') {
+      const nextEl = $(el).next();
+      if (nextEl.length && (nextEl[0].tagName === 'ul' || nextEl[0].tagName === 'ol')) {
+        const pText = $(el).text().trim();
+        const listText = nextEl.find('li').map((_, li) => $(li).text().trim()).get().join(' ');
+        const normalizedPText = normalizeText(pText);
+        const normalizedListText = normalizeText(listText);
+
+        // If the <p> text contains the list items, render only the heading part
+        if (normalizedPText.includes(normalizedListText) || normalizedListText.includes(normalizedPText)) {
+          const headingMatch = pText.match(/^[^:]+:/); // Extract the heading (e.g., "Consensus layer mainnet releases:")
+          if (headingMatch) {
+            const headingText = headingMatch[0];
+            const normalizedHeading = normalizeText(headingText);
+            if (!renderedText.has(normalizedHeading)) {
+              renderedText.add(normalizedHeading);
+              const parts = [{ text: headingText, bold: false, underline: false }];
+              renderText(parts, xOffset, fontSize);
+            }
+          }
+          return; // Skip further processing of this <p>, let the <ul> handle the list items
+        }
+      }
     }
 
     // Extract text and styles
@@ -109,7 +133,12 @@ function generateSVG(issueDate, markdownContent) {
       } else if (node.type === 'tag') {
         const isBold = node.name === 'strong' || parentBold;
         const isUnderline = node.name === 'a' || parentUnderline;
-        $(node).contents().each((_, child) => processNode(child, isBold, isUnderline));
+        if (node.name === 'ul' || node.name === 'ol') {
+          // Process nested lists
+          $(node).children('li').each((_, li) => processElement(li, indentLevel + 1));
+        } else {
+          $(node).contents().each((_, child) => processNode(child, isBold, isUnderline));
+        }
       }
     };
 
@@ -127,11 +156,26 @@ function generateSVG(issueDate, markdownContent) {
     const fullText = parts.map(part => part.text).join(' ');
     const normalized = normalizeText(fullText);
     if (renderedText.has(normalized)) return;
+
+    // Check for partial matches in renderedText
+    let isDuplicate = false;
+    for (const rendered of renderedText) {
+      if (normalized.includes(rendered) || rendered.includes(normalized)) {
+        isDuplicate = true;
+        break;
+      }
+    }
+    if (isDuplicate) return;
+
     renderedText.add(normalized);
 
     if (prefix) parts[0].text = prefix + parts[0].text;
 
-    // Wrap text into lines
+    renderText(parts, xOffset, fontSize);
+  };
+
+  // Helper function to render text
+  const renderText = (parts, xOffset, fontSize) => {
     const textLines = [];
     let currentLine = '';
     let currentStyles = { bold: false, underline: false };
