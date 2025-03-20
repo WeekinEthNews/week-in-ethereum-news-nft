@@ -1,12 +1,12 @@
 const fs = require('fs').promises;
 const path = require('path');
-const MarkdownIt = require('markdown-it');
-const cheerio = require('cheerio');
+const { marked } = require('marked');
 
-const md = new MarkdownIt();
+// Directories
 const archiveDir = './archive';
 const imagesDir = './images';
 
+// Month name mappings
 const monthMap = {
   'january': '01', 'february': '02', 'march': '03', 'april': '04',
   'may': '05', 'june': '06', 'july': '07', 'august': '08',
@@ -16,6 +16,7 @@ const monthNameMap = Object.fromEntries(
   Object.entries(monthMap).map(([name, num]) => [num, name.charAt(0).toUpperCase() + name.slice(1)])
 );
 
+// Ensure directory exists
 async function ensureDir(dir) {
   try {
     await fs.mkdir(dir, { recursive: true });
@@ -24,6 +25,7 @@ async function ensureDir(dir) {
   }
 }
 
+// Parse date from filename
 function parseDateFromFilename(filename) {
   const match = filename.match(/week-in-ethereum-news-([a-z]+)-(\d{1,2})-(\d{4})\.md$/i);
   if (!match) return null;
@@ -34,12 +36,14 @@ function parseDateFromFilename(filename) {
   return `${year}-${month}-${paddedDay}`;
 }
 
+// Format dates
 function formatDisplayDate(issueDate) {
   const [year, monthNum, day] = issueDate.split('-');
   const monthName = monthNameMap[monthNum];
   return `${monthName} ${parseInt(day)}, ${year}`;
 }
 
+// Escape special XML characters
 function escapeXML(str) {
   return str
     .replace(/&/g, '&amp;')
@@ -49,6 +53,7 @@ function escapeXML(str) {
     .replace(/'/g, '&apos;');
 }
 
+// Generate SVG with title and date removed from markdown content
 function generateSVG(issueDate, markdownContent) {
   const svgWidth = 500;
   const contentHeight = 626;
@@ -64,17 +69,18 @@ function generateSVG(issueDate, markdownContent) {
 
   // Process markdown
   let cleanedContent = markdownContent.replace(/^---[\s\S]*?---\n*/m, '');
-  const html = md.render(cleanedContent);
-  const $ = cheerio.load(html);
+  const html = marked(cleanedContent);
+  const $ = require('cheerio').load(html); // Still using cheerio for HTML parsing
 
   const formattedDate = formatDisplayDate(issueDate);
   $('h1').first().filter((i, el) => $(el).text().includes('Week in Ethereum News')).remove();
 
   const renderedText = new Set();
+  const normalizeText = (text) => text.trim().replace(/\s+/g, ' ').toLowerCase();
 
-  const processElement = (el) => {
+  const processElement = (el, indentLevel = 0) => {
     let fontSize = 8;
-    let xOffset = marginLeft;
+    let xOffset = marginLeft + (indentLevel * 8);
     let prefix = '';
 
     switch (el.tagName) {
@@ -85,73 +91,94 @@ function generateSVG(issueDate, markdownContent) {
         fontSize = 10;
         break;
       case 'li':
-        prefix = '* ';
-        xOffset = 50;
+        prefix = '• ';
+        xOffset += 8; // Additional indent for list items
         break;
       case 'p':
-        xOffset = 50;
         break;
     }
 
-    const textLines = [];
-    const processNode = (node) => {
+    // Extract text and styles
+    const parts = [];
+    const processNode = (node, parentBold = false, parentUnderline = false) => {
       if (node.type === 'text') {
-        return [{ text: node.data.trim(), bold: false, underline: false }];
+        const text = node.data.trim();
+        if (text) {
+          parts.push({ text, bold: parentBold, underline: parentUnderline });
+        }
+      } else if (node.type === 'tag') {
+        const isBold = node.name === 'strong' || parentBold;
+        const isUnderline = node.name === 'a' || parentUnderline;
+        $(node).contents().each((_, child) => processNode(child, isBold, isUnderline));
       }
-      if (node.type === 'tag') {
-        const parts = [];
-        const isBold = node.name === 'strong';
-        const isUnderline = node.name === 'a';
-        $(node).contents().each((_, child) => {
-          parts.push(...processNode(child).map(part => ({
-            ...part,
-            bold: part.bold || isBold,
-            underline: part.underline || isUnderline
-          })));
-        });
-        return parts;
-      }
-      return [];
     };
 
-    const parts = processNode(el);
-    if (!parts.length) {
-      const text = $(el).text().trim();
-      if (text) parts.push({ text, bold: false, underline: false });
+    processNode(el);
+
+    // Process nested lists
+    if (el.tagName === 'ul' || el.tagName === 'ol') {
+      $(el).children('li').each((_, li) => processElement(li, indentLevel + 1));
+      return;
     }
 
-    if (prefix && parts.length) parts[0].text = prefix + parts[0].text;
+    if (!parts.length) return;
 
+    // Combine parts into a single text string for duplicate checking
+    const fullText = parts.map(part => part.text).join(' ');
+    const normalized = normalizeText(fullText);
+    if (renderedText.has(normalized)) return;
+    renderedText.add(normalized);
+
+    if (prefix) parts[0].text = prefix + parts[0].text;
+
+    // Wrap text into lines
+    const textLines = [];
     let currentLine = '';
-    for (const part of parts) {
+    let currentStyles = { bold: false, underline: false };
+    let partIndex = 0;
+
+    while (partIndex < parts.length) {
+      const part = parts[partIndex];
       const words = part.text.split(/\s+/);
       for (const word of words) {
         if (word.length > charsPerLine) {
-          if (currentLine) textLines.push(currentLine.trim());
+          if (currentLine) {
+            textLines.push({ text: currentLine.trim(), bold: currentStyles.bold, underline: currentStyles.underline });
+            currentLine = '';
+          }
           const chunks = word.match(new RegExp(`.{1,${charsPerLine}}`, 'g'));
-          textLines.push(...chunks);
-          currentLine = '';
+          chunks.forEach(chunk => {
+            textLines.push({ text: chunk, bold: part.bold, underline: part.underline });
+          });
         } else if ((currentLine + word).length > charsPerLine) {
-          textLines.push(currentLine.trim());
+          textLines.push({ text: currentLine.trim(), bold: currentStyles.bold, underline: currentStyles.underline });
           currentLine = word + ' ';
+          currentStyles = { bold: part.bold, underline: part.underline };
         } else {
           currentLine += word + ' ';
+          currentStyles.bold = currentStyles.bold || part.bold;
+          currentStyles.underline = currentStyles.underline || part.underline;
         }
       }
+      partIndex++;
     }
-    if (currentLine) textLines.push(currentLine.trim());
+    if (currentLine) {
+      textLines.push({ text: currentLine.trim(), bold: currentStyles.bold, underline: currentStyles.underline });
+    }
 
-    textLines.forEach((line, i) => {
+    // Render lines
+    textLines.forEach((lineObj) => {
       if (yPos + lineHeight > maxY) return;
       const styles = [];
-      if (parts[0].bold) styles.push('font-weight="bold"');
-      if (parts[0].underline) styles.push('text-decoration="underline"');
-      svg += `<text x="${xOffset}" y="${yPos}" font-size="${fontSize}" font-family="Courier New" fill="#ffffff" opacity="0.15" ${styles.join(' ')}>${escapeXML(line)}</text>`;
+      if (lineObj.bold) styles.push('font-weight="bold"');
+      if (lineObj.underline) styles.push('text-decoration="underline"');
+      svg += `<text x="${xOffset}" y="${yPos}" font-size="${fontSize}" font-family="Courier New" fill="#ffffff" opacity="0.15" ${styles.join(' ')}>${escapeXML(lineObj.text)}</text>`;
       yPos += lineHeight;
     });
   };
 
-  $('h2, h3, p, li').each((_, el) => {
+  // Process top-level elements
+  $('h2, h3, p, ul, ol').each((_, el) => {
     if (yPos < maxY) processElement(el);
   });
 
@@ -178,6 +205,7 @@ function generateSVG(issueDate, markdownContent) {
   return svg;
 }
 
+// Process a single markdown file for image
 async function processImage(filePath, tokenID) {
   try {
     const filename = path.basename(filePath);
@@ -197,6 +225,7 @@ async function processImage(filePath, tokenID) {
   }
 }
 
+// Generate all images
 async function generateImages() {
   try {
     await ensureDir(imagesDir);
@@ -205,7 +234,6 @@ async function generateImages() {
     
     markdownFiles.sort((a, b) => parseDateFromFilename(a).localeCompare(parseDateFromFilename(b)));
     
-    // Process in batches for better performance
     const batchSize = 10;
     for (let i = 0; i < markdownFiles.length; i += batchSize) {
       const batch = markdownFiles.slice(i, i + batchSize);
